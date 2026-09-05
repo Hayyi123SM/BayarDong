@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # =============================================================
-# Stage 1: Frontend build (Vite + Tailwind + Alpine)
+# Stage 1: Build frontend (Vite + Tailwind + Alpine)
 # =============================================================
 FROM node:22-alpine AS frontend
 
@@ -15,19 +15,22 @@ COPY . .
 RUN npm run build
 
 # =============================================================
-# Stage 2: Runtime (FrankenPHP + Caddy)
+# Stage 2: Runtime — FrankenPHP resmi (mode worker/Octane)
 # =============================================================
-# Stage 2: Runtime (Debian — ekstensi terpasang via apt, lebih cepat/andal)
+# Image resmi dunglas/frankenphp: biner FrankenPHP jadi, bukan diunduh manual.
+# Aplikasi dijalankan sebagai long-running process (Octane) — diboot sekali,
+# request dilayani in-memory. Perubahan kode berlaku saat container dibuat ulang.
 FROM dunglas/frankenphp:1-php8.4 AS runtime
 
-# Ekstensi PHP yang dibutuhkan aplikasi (sqlite, mbstring, opcache).
-# pcntl sengaja tidak dipasang — hanya diperlukan oleh Octane/worker mode.
+# Ekstensi sesuai kebutuhan app (sqlite; bukan mysql/redis/gd).
+# pcntl wajib untuk Octane (penanganan sinyal worker).
 RUN install-php-extensions \
     mbstring \
     fileinfo \
     pdo_sqlite \
     opcache \
-    zip
+    zip \
+    pcntl
 
 # Aktifkan konfigurasi PHP produksi (opcache aktif, error_reporting sesuai prod)
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
@@ -41,10 +44,8 @@ WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
-# Salin kode aplikasi
+# Salin kode aplikasi (public/build dikecualikan di .dockerignore, salin dari stage frontend)
 COPY . .
-
-# Salin aset frontend hasil build
 COPY --from=frontend /app/public/build public/build
 
 # Generate autoloader + package discovery.
@@ -58,11 +59,9 @@ RUN composer install --no-dev --no-scripts --prefer-dist \
 COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint
 RUN chmod +x /usr/local/bin/docker-entrypoint
 
-# Caddy melayani HTTP (tanpa TLS) di port 80 — staging di belakang proxy/tunnel
-ENV SERVER_NAME=:80 \
-    DOCUMENT_ROOT=/app/public
-
-EXPOSE 80
+# Oktane + FrankenPHP melayani HTTP di port 8000 (staging di belakang proxy/Traefik).
+# --workers=2: kompromi aman; publikasi via OCTANE_HTTPS di env bila di balik HTTPS.
+EXPOSE 8000
 
 ENTRYPOINT ["docker-entrypoint"]
-CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
+CMD ["php", "artisan", "octane:frankenphp", "--host=0.0.0.0", "--port=8000", "--workers=2", "--max-requests=500"]

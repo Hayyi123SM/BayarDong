@@ -12,13 +12,14 @@ services:
       - .env
     # Container tidak dibuka ke host — akses via domain/Traefik (Dokploy menambah
     # network 'dokploy-network' + label Traefik otomatis saat domain diatur di UI).
+    # Port 8000 = listener server FrankenPHP mode Octane (lihat CMD di Dockerfile).
     expose:
-      - "80"
+      - "8000"
     volumes:
       - bayarkilat_sqlite:/app/database
       - bayarkilat_storage:/app/storage
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/up >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/up >/dev/null 2>&1"]
       interval: 30s
       timeout: 5s
       retries: 3
