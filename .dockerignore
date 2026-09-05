@@ -1,0 +1,47 @@
+# Batasi build context — hindari memasukkan file tidak perlu & berbahaya.
+.git
+.gitignore
+.dockerignore
+
+# Dependensi (di-install ulang di dalam image)
+node_modules
+vendor
+
+# Hasil build frontend lokal — di-rebuild di image
+public/build
+
+# Penanda dev-server Vite (muncul saat `npm run dev` lokal)
+public/hot
+
+# Symlink storage publik (dibuat ulang oleh entrypoint)
+public/storage
+
+# Kredensial & env (jangan pernah masuk image)
+.env
+.env.example
+.env.staging
+.env.backup
+.env.production
+
+# File konfigurasi container itu sendiri
+Dockerfile
+compose.yaml
+docker-compose.yml
+docker-compose.yaml
+
+# Artefak lokal
+.DS_Store
+bootstrap/cache/*
+!bootstrap/cache/.gitignore
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/testing/*
+database/database.sqlite
+
+# Tooling/testing
+tests
+.phpunit.cache
+.phpactor.json
+*.log
