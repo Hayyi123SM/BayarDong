@@ -1,0 +1,29 @@
+# Docker Compose untuk staging BayarKilat di Dokploy.
+# Env (APP_KEY, APP_ENV, APP_URL, dll) diisi lewat UI Dokploy (tab Environment),
+# lalu ditulis Dokploy ke file `.env` di samping file ini saat deploy.
+# Referensi variabel: .env.staging.example
+services:
+  app:
+    build:
+      context: .
+    image: bayarkilat-app:staging
+    restart: unless-stopped
+    env_file:
+      - .env
+    # Container tidak dibuka ke host — akses via domain/Traefik (Dokploy menambah
+    # network 'dokploy-network' + label Traefik otomatis saat domain diatur di UI).
+    expose:
+      - "80"
+    volumes:
+      - bayarkilat_sqlite:/app/database
+      - bayarkilat_storage:/app/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/up >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  bayarkilat_sqlite:
+  bayarkilat_storage:
