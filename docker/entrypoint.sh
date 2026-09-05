@@ -12,11 +12,20 @@ mkdir -p \
 # Sesuaikan kepemilikan agar konsisten dengan user runtime www-data.
 chown -R www-data:www-data storage bootstrap/cache || true
 
-# Siapkan database SQLite default + jalankan migrasi (idempotent).
+# Siapkan file SQLite default bila koneksi menunjuk sqlite (dev).
 if [ -z "${DB_CONNECTION:-}" ] || [ "${DB_CONNECTION}" = "sqlite" ]; then
     [ -f database/database.sqlite ] || touch database/database.sqlite
-    php artisan migrate --force --no-interaction >/dev/null 2>&1 || true
 fi
+
+# Migrasi idempotent untuk sqlite maupun MySQL (service DB Dokploy).
+# Retry singkat agar tidak balapan dengan readiness service DB, tanpa memblokir boot.
+for i in 1 2 3 4 5; do
+    if php artisan migrate --force --no-interaction >/dev/null 2>&1; then
+        break
+    fi
+    echo "[bayarkilat] migrasi gagal (percobaan ${i}/5), coba lagi dalam 2 detik..."
+    sleep 2
+done
 
 # Buat symlink storage publik (aman dijalankan berulang kali).
 if [ -f artisan ]; then

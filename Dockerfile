@@ -22,15 +22,13 @@ RUN npm run build
 # request dilayani in-memory. Perubahan kode berlaku saat container dibuat ulang.
 FROM dunglas/frankenphp:1-php8.4 AS runtime
 
-# Ekstensi sesuai kebutuhan app (sqlite; bukan mysql/redis/gd).
-# pcntl wajib untuk Octane (penanganan sinyal worker).
-RUN install-php-extensions \
-    mbstring \
-    fileinfo \
-    pdo_sqlite \
-    opcache \
-    zip \
-    pcntl
+# Ekstensi sesuai kebutuhan app. SQLite untuk dev; MySQL (pdo_mysql) sebagai
+# DB staging/produksi (service MySQL dari Dokploy). pcntl wajib untuk Octane.
+# Dipisah per-RUN agar tiap langkah ter-cache dan build dapat dilanjutkan
+# dari langkah terakhir yang sukses bila daemon terputus di tengah jalan.
+RUN install-php-extensions mbstring fileinfo pdo_sqlite zip
+RUN install-php-extensions pdo_mysql
+RUN install-php-extensions opcache pcntl
 
 # Aktifkan konfigurasi PHP produksi (opcache aktif, error_reporting sesuai prod)
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
